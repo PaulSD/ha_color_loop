@@ -1,0 +1,136 @@
+################################################################################
+#
+# Color Loop Blueprint
+#
+# Loops through predetermined colors for a chosen light.
+#
+################################################################################
+blueprint:
+  name: Color Loop
+  description: >-
+    ## Color Loop:
+
+    Loops through predetermined colors for a chosen light.
+
+    This will continue indefinitely until the either the light is turned off or the script is manually disabled.
+
+    ## Configuration:
+
+    ### Light:
+
+    For the Light, choose the light entity to loop through the colors chosen below.
+
+    ***Note: This will NOT work for lights which do not gradually transition colors. In these cases, the light will instantly change to the next color after the transition time instead of gradually changing.***
+
+    ### Colors:
+
+    Choose from the preset list of color names or manually enter your own.
+
+    Refer to [https://htmlcolorcodes.com/color-names](https://htmlcolorcodes.com/color-names) for a list of valid color names.
+
+    *Note: If the color is spelled incorrectly it will likely resolve to just white.*
+
+    *Note: There is no current way to re-order the chosen colors, you must remove and re-add in order to change the order.*
+
+    ### Transition Time:
+
+    Choose the time it takes to cycle through each color.
+
+  domain: script
+  input:
+    light:
+      name: Light
+      selector:
+        entity:
+          domain: light
+    light_colors:
+      name: Colors
+      selector:
+        select:
+          multiple: true
+          custom_value: true
+          options:
+            - Red
+            - Salmon
+            - Crimson
+            - DarkRed
+            - Pink
+            - HotPink
+            - DeepPink
+            - Coral
+            - OrangeRed
+            - DarkOrange
+            - Orange
+            - Gold
+            - Yellow
+            - DarkKhaki
+            - Lavender
+            - Plum
+            - Orchid
+            - Magenta
+            - MediumPurple
+            - BlueViolet
+            - Purple
+            - Indigo
+            - SlateBlue
+            - GreenYellow
+            - Lime
+            - LightGreen
+            - SpringGreen
+            - Green
+            - Olive
+            - MediumAquamarine
+            - LightSeaGreen
+            - Teal
+            - Cyan
+            - Aquamarine
+            - DarkTurquoise
+            - CadetBlue
+            - SteelBlue
+            - LightSteelBlue
+            - SkyBlue
+            - DeepSkyBlue
+            - DodgerBlue
+            - RoyalBlue
+            - Blue
+            - Navy
+            - Wheat
+            - Tan
+            - Goldenrod
+            - Brown
+            - Maroon
+    transition:
+      name: Transition Time
+      selector:
+        duration:
+      default:
+        hours: 0
+        minutes: 0
+        seconds: 15
+
+sequence:
+  - alias: "Set up variables"
+    variables:
+      light_colors: !input light_colors
+      color_count: '{{ light_colors|length }}'
+      transition: !input transition
+      transition_seconds: '{{ ((transition.hours)*60*60) +  ((transition.minutes)*60) + transition.seconds }}'
+
+  - alias: "LOOP!"
+    repeat:
+      while:
+        - condition: state
+          entity_id: !input light
+          state: 'on'
+      sequence:
+        - variables:
+            i_total: '{{ repeat.index }}'
+            i_cur: '{{ i_total % color_count }}'
+        - service: light.turn_on
+          target:
+            entity_id: !input light
+          data:
+            color_name: >-
+              {{ light_colors[i_cur] }}
+            transition: '{{ transition_seconds }}'
+        - delay: '{{ transition_seconds }}'
