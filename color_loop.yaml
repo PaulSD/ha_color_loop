@@ -44,7 +44,7 @@ blueprint:
 
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- script.my_light_color_loop
 
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;event_types:
+    &nbsp;&nbsp;&nbsp;&nbsp;event_types:
 
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Do not record ANY service calls
 
