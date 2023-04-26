@@ -2,12 +2,20 @@ blueprint:
   name: Color Loop
   description: '# Color Loop
 
-    ### Version: `0.1.1` (2022-06-19)
+    ### Version: `2.0.0` (2023-04-25)
+
+    #### Tested on Home Assistant Version: `2023.4.4`
+
+    #### Blueprints Page: <https://community.home-assistant.io/t/427682>
 
     Loops through predetermined colors for a chosen light.
 
-    This will continue indefinitely until the either the light is turned off or the
-    script is manually disabled.
+
+    Can be configured to either:
+
+    - Loop through colors whenever the light is on.
+
+    - Loop through colors only when both the light and a toggle switch are on.
 
     ## READ THIS FIRST
 
@@ -17,9 +25,13 @@ blueprint:
     they are still logged in the database unless manually configured to not do so.
     [If Home Assistant is running on an SD card on a Raspberry Pi, large amounts
     of DB changes can technically cause damage over time](https://www.reddit.com/r/homeassistant/comments/jvwtv1/friendly_reminder_dont_use_a_sd_card_on_a_pi/).
-    Refer to the next sections regarding solutions to mitigate this issue.
+    Refer to the next section regarding solutions to mitigate this issue.
     If you do not understand these issues, this blueprint should probably be avoided.**
 
+    <!-- For some reason we need something directly above the details tag to have it render properly -->
+    <details>
+      <summary><big><b><u>Click here for solutions to help avoid overloading Home Assistant</u></b></big></summary>
+    <hr>
 
     ### Solution 1: Exclude lights from recorder:
 
@@ -42,7 +54,7 @@ blueprint:
 
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Exclude any logging of this color loop script.
 
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- script.my_light_color_loop
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- automation.my_light_color_loop
 
     &nbsp;&nbsp;&nbsp;&nbsp;event_types:
 
@@ -83,99 +95,125 @@ blueprint:
     without needing to *always* exclude logging:
     [Allow an ability to call a service without any logging/recording](https://community.home-assistant.io/t/allow-an-ability-to-call-a-service-without-any-logging-recording/428693)
 
-    # Configuration:
-
-    ## Light:
-
-    For the Light, choose the light entity to loop through the colors chosen below.
-
-    This script will continuously loop through colors until the script it manually
-    stopped or the light is turned off.
-
-    A group entity consisting of multiple lights can also be used. This has a
-    caveat where the script does not always get disabled when turning the
-    individual lights off. To stop the color loop for groups, either manually
-    stop the script or turn the whole light group off.
-
-    ***Note: Some lights do not support gradual transition between colors.
-    In these cases, the light will instantly change to the next color after
-    the transition time instead of gradually changing. Refer to the
-    `Max Color Distance` section below for a means to resolve this.***
-
-    ## Colors:
-
-    Set the colors to loop through.
-
-    Any colors set to black (R:0 G:0 B:0) will be omitted from the loop.
-
-    *Note: There is no current way to re-order the chosen colors, you must change
-    or remove (set to black) colors to change the order.*
-
-    *Note: Since RGB colors do not translate well to colored lights (the current
-    brightness of the light does not get changed by this script) the color previews
-    may not look accurate to the final result.*
-
-    ## Transition Time:
-
-    Choose the time it takes to cycle through each color.
-
-    ## Max Color Distance:
-
-    Determines how many colors in between the chosen colors should be transitioned to.
-
-    This prevents issues where the color fades to white in between colors by
-    dynamically picking colors in between the chosen colors.
-
-    This value basically means the minimum amount of degrees of the color wheel
-    should result in an in-between color to be added.
-
-
-    For Example: Red and Cyan are on the opposite side of the color wheel (180 degrees apart):
-
-    - Choosing `180` will cause the color transition going straight across resulting in a fade to white in between the colors.
-
-    - Choosing `90` will have a new color added every 90 degrees, so in this case a new transitional color will be added at Purple.
-
-    - Choosing `60` will have a new color added every 60 degrees, so in this case two transitional colors will be added at Blue and Pink.
-
-    - Choosing `30` will have a new color added every 30 degrees, so in this case three transitional colors will be added at Red/Pink, Purple, and Blue.
-
-    - Choosing `1` will have a new color added every 1 degrees, so in this case the light will be set to a new color for EVERY color along the way.
-
-
-    If using a light which does not support color transitions, this can be set
-    to a very low number (eg 1-10) in order to fake the color transition by
-    updating the colors gradually along the way.
-
-    In summary, for performance reasons, keep this value as high as possible and
-    lower it as needed to avoid the color going brighter in between the
-    chosen colors.
-
-    ## Max Changes Per Second:
-
-    With the combination of `Transition Time` and `Max Color Distance` both being
-    set to a low value, this could end up resulting in WAY too many calls to the
-    light to update its color (up to 180 calls per second). In order to avoid
-    overloading Home Assistant, this value can be used in order to set a maximum
-    limit of how many calls per second to change the light during transition can
-    be made.
-
-    For performance reasons, this should be as low as possible, but with lights
-    which do not support color transitions, this can be increased in order to
-    have smoother color transitions.
-    '
-  domain: script
+    <hr>
+    </details>
+  '
+  domain: automation
   input:
     light:
       name: Light
+      description: "
+        The Light entity or Light Group entity to loop through the colors chosen below.
+      "
       selector:
         entity:
           domain:
             - light
             - group
           multiple: false
+    # TODO: If helpers are introduced to blueprints, add our own toggle so we don't have to rely on external entities.
+    # Refer to https://community.home-assistant.io/t/258307
+    helper_toggle:
+      name: Color Loop Toggle
+      description: "An ON/OFF toggle to enable/disable enable/disable the color looping for the chosen Light.
+
+        <!-- For some reason we need something directly above the details tag to have it render properly -->
+        <details>
+        <summary><big><b><u>Click Here For More Info</u></b></big></summary>
+          <hr>
+
+          A single Color Loop Toggle can be used across multiple Color Loop
+          automations to control multiple lights at the same time with each light
+          having their own set of colors / rules.
+
+
+          **If you don't want to add a separate toggle and want the light to
+          _always_ loop colors _whenever it is on_ then set this value to be
+          the same light entity as above.**
+
+          ### General rules in how the toggle affects the color loop:
+
+          - If the `Toggle` is turned `ON` while the `Light` is `ON`: `Color looping starts`.
+
+          - If the `Toggle` is turned `OFF` while the `Light` is `ON`: `Light is set to current color and stops color-looping`.
+
+          - If the `Toggle` is turned `ON`/`OFF` while the `Light` is `OFF`: `Nothing Happens`.
+
+          - If the `Light` is turned `ON` while the `Toggle` is `ON`: `Light is turned on and Color looping starts`.
+
+          - If the `Light` is turned `ON` while the `Toggle` is `OFF`: `Light is turned on and no Color Looping occurs`.
+
+          - If the `Light` is turned `OFF` while the `Toggle` is `ON`/`OFF`: `The light turns OFF and Color Looping stops`.
+
+
+        <hr>
+        </details>
+
+        <br>
+
+        <!-- For some reason we need something directly above the details tag to have it render properly -->
+        <details>
+        <summary><big><b><u>Click Here For Configuration Instructions</u></b></big></summary>
+          <hr>
+
+          Configure using one of the options below.
+
+
+          ### Option 1: Create Toggle via UI:
+
+          1. Go to `Settings` > `Devices & Services` > `Helpers`.
+
+          2. Press `+ Create Helper`.
+
+          3. Choose `Toggle`.
+
+          4. Add a `Name` and save.
+
+          5. Select this new Toggle for this blueprint.
+
+
+          ### Option 2: Create Toggle via YML Configuration:
+
+          Add the following YML configuration:
+
+          <code>
+          <!-- Code Blocks in markdown seem to be broken, the following is a work-around -->
+          input_boolean:
+
+          &nbsp;&nbsp;my_color_loop_toggle:
+
+          &nbsp;&nbsp;&nbsp;&nbsp;name: My Color Loop Toggle
+
+          &nbsp;&nbsp;&nbsp;&nbsp;icon: mdi:palette-outline
+          </code>
+
+          Select this new Toggle for this blueprint.
+
+
+          ### Option 3: Configure Color Loop to ALWAYS be running whenever the light is on:
+
+          Set this value to be the same light entity as above.
+
+
+          _Note: Light Groups are intentionally excluded from being added as a
+          toggle as turning off individual lights would be problematic.
+          You will need to add a toggle entity here in order to add color looping
+          to groups._
+
+        <hr>
+        </details>
+      "
+      default:
+      selector:
+        entity:
+          domain:
+            - light
+            - input_boolean
     transition:
       name: Transition Time
+      description: "
+        Choose the time it takes to cycle through each color.
+      "
       selector:
         duration: {}
       default:
@@ -184,6 +222,83 @@ blueprint:
         seconds: 15
     max_color_distance:
       name: Max Color Distance
+      description: "
+        Helps control how the colors are transitioned.
+
+        <!-- For some reason we need something directly above the details tag to have it render properly -->
+        <details>
+          <summary><big><b><u>Click Here For More Info</u></b></big></summary>
+            <hr>
+
+            This value controls how colors in between the chosen colors are dynamically
+            chosen in order to prevent issues where:
+
+            - The color fades to white (or a lighter color) in between the chosen colors.
+
+            - The color does not transition smoothly or at all.
+
+
+            The color wheel uses (Hue) which are degrees (0-359) which represent
+            where colors are along the curve of the wheel.
+
+
+            This `Max Color Distance` value basically means the cut-off amount
+            of degrees on the color wheel which should result in new in-between
+            color(s) to be added.
+
+
+            If these extra colors are not added, then the color transition will
+            follow a straight path across the wheel, likely resulting in colors we
+            don't want along the way.
+
+
+            For example: If we wanted to transition from Red to Cyan which are on the opposite side of the color wheel (180 degrees apart):
+
+            - Setting `Max Color Distance` to `180` will cause the color transition to go straight across resulting in a fade to white in between the colors.
+
+              ![Image](https://user-images.githubusercontent.com/22206300/232822236-8cca7b37-0a72-4cbc-b198-4d1fb1dd2325.png)
+
+            - Setting `Max Color Distance` to `90` will have a new color added every `90` degrees. In this case a new transitional color will be added at Purple.
+
+              ![Image](https://user-images.githubusercontent.com/22206300/232822243-2a3b710b-b72f-4d5c-b4f3-e0f35374b602.png)
+
+            - Setting `Max Color Distance` to `60` will have a new color added every `60` degrees. In this case two transitional colors will be added at Blue and Pink.
+
+              ![Image](https://user-images.githubusercontent.com/22206300/232822244-a187e691-8c85-4266-a904-d6f179a0a0af.png)
+
+            - Setting `Max Color Distance` to `30` will have a new color added every `30` degrees. In this case three transitional colors will be added at Red/Pink, Purple, and Blue.
+
+              ![Image](https://user-images.githubusercontent.com/22206300/232822245-60aea03f-845e-47ec-a4a1-4602c7601717.png)
+
+            - Setting `Max Color Distance` to `1` will have a new color added every `1` degree. In this case the light will have a command sent to change to a new color for EVERY color along the way.
+
+              ![Image](https://user-images.githubusercontent.com/22206300/232822249-2db23295-3cde-430c-b482-be303b84f23f.png)
+
+
+            <hr>
+        </details>
+
+
+        **For performance reasons, _keep this value as high as possible_.
+        Lower numbers will result in more commands being sent to the light
+        putting more burden on Home Assistant**
+
+        <!-- For some reason we need something directly above the details tag to have it render properly -->
+        <details>
+          <summary><big><b><u>Click Here If You Are Unsure What Value To Set This To</u></b></big></summary>
+          <hr>
+
+          Try saving the Color Loop with `Max Color Distance` set to `180` and
+          `Transition Time` set to something quick like `3 seconds`.
+
+          - If the light fades smoothly but gets brighter/whiter between colors, then reduce `Max Color Distance` by about `60` and save. Keep doing this until the color fading is acceptable.
+
+          - **If there is no fading at all between colors** (it jumps directly from color to color every 3 seconds) then this light does not support color transitions. You may want to choose a number between `1` - `15` depending on how close the colors are to each other and the desired `Transition Time`. This will essentially fake the color transitions by sending color-change commands to the light more often.
+
+
+          <hr>
+        </details>
+      "
       default: 60
       selector:
         number:
@@ -191,6 +306,37 @@ blueprint:
           max: 180
     max_changes_per_second:
       name: Max Changes Per Second
+      description: "
+        The maximum number of commands (per second) that can be performed for color changes.
+
+        <!-- For some reason we need something directly above the details tag to have it render properly -->
+        <details>
+          <summary><big><b><u>Click Here For More Info</u></b></big></summary>
+            <hr>
+
+            Without `Max Changes Per Second`, if a combination of `Transition Time`
+            and `Max Color Distance` were both being set to a low value,
+            it would end up resulting in WAY too many calls to the light to
+            update its color (up to 180 calls per second).
+
+
+            In order to avoid overloading Home Assistant, this value can be used in
+            order to set a maximum limit of how many calls per second to change the
+            light during transition can be made.
+
+
+            Note: This being set to 1 second does not mean that it will always be
+            sending commands every second. The transition times and/or how close
+            the colors are to each other will cause the time between commands
+            to vary quite a bit, this is basically just a speed limit.
+
+            <hr>
+        </details>
+
+        **For performance reasons, this should be set as low as possible**,
+        but with lights which do not support color transitions, this can be
+        increased in order to have smoother color transitions.
+      "
       default: 1
       selector:
         number:
@@ -198,7 +344,31 @@ blueprint:
           max: 5
     color_1:
       name: Color 1
-      description: 'Set to black to omit this color'
+      description: "
+        Set to black to omit this color.
+
+        <!-- For some reason we need something directly above the details tag to have it render properly -->
+        <details>
+          <summary><big><b><u>Click Here For More Info</u></b></big></summary>
+            <hr>
+
+            These are the main colors that will be looped through.
+
+
+            Any colors set to black (R:0 G:0 B:0) will be omitted from the loop.
+
+
+            *Note: There is no current way to re-order the chosen colors,
+            you must change or remove (set to black) colors to change the order.*
+
+
+            *Note: Since RGB colors do not translate well to colored lights (the
+            current brightness of the light does not get changed by this script)
+            the color previews may not look accurate to the final result.*
+
+            <hr>
+        </details>
+      "
       default:
         - 0
         - 0
@@ -304,79 +474,126 @@ blueprint:
         - 0
       selector:
         color_rgb: {}
-  source_url: https://gist.github.com/mdolnik/7147b5df4b08f7979afad02a5dd137a2
 
-# If we trigger the script while its running, restart the script.
+# If we trigger the color-loop while its running, restart the automation.
 mode: restart
 
-sequence:
-- alias: Set up main variables
-  variables:
-    transition: !input 'transition'
-    transition_seconds: '{{ ((transition.hours)*60*60) +  ((transition.minutes)*60)
-      + transition.seconds }}'
-    max_color_distance: !input 'max_color_distance'
-    max_changes_per_second: !input 'max_changes_per_second'
-    color_rgbs:
-      - !input 'color_1'
-      - !input 'color_2'
-      - !input 'color_3'
-      - !input 'color_4'
-      - !input 'color_5'
-      - !input 'color_6'
-      - !input 'color_7'
-      - !input 'color_8'
-      - !input 'color_9'
-      - !input 'color_10'
-      - !input 'color_11'
-      - !input 'color_12'
-    # Convert the array of RGB colors to a comma separated list of HSV values.
-    # Exclude any colors set to black.
-    # https://community.home-assistant.io/t/using-hsv-hsb-to-set-colored-lights/15472
-    # https://github.com/home-assistant/core/issues/33678#issuecomment-609424851
-    # https://stackoverflow.com/a/56141280/4147996
-    color_hsv_list: >-
-      {%- set data = namespace(entries=[]) -%}
-      {%- for color_rgb in color_rgbs -%}
-        {%- if color_rgb != [0,0,0] -%}
-          {%- set r = (color_rgb[0]/255) -%}
-          {%- set g = (color_rgb[1]/255) -%}
-          {%- set b = (color_rgb[2]/255) -%}
-          {%- set maxRGB = max(r,g,b) -%}
-          {%- set minRGB = min(r,g,b) -%}
-          {%- set chroma = maxRGB - minRGB -%}
-          {%- if chroma == 0 -%}
-            {%- set h = 0 -%}
-            {%- set s = 0 -%}
-            {%- set v = maxRGB -%}
+# Set up main variables.
+variables:
+  color_loop_light: !input 'light'
+  helper_toggle: !input 'helper_toggle'
+  # Since we are forced to provide an entity for the `helper_toggle` input
+  # (otherwise the trigger step would break) this variable is used as an
+  # indicator for whether a "separate" toggle is used.
+  toggle_is_used: '{{ color_loop_light != helper_toggle }}'
+  # If a "separate" toggle is used, during long light transitions, we will need
+  # to check every X seconds whether the toggle has switched off so that we can
+  # stop the current color transition as well as this automation.
+  toggle_transition_check_time: 1.5
+  transition: !input 'transition'
+  transition_seconds: '{{ ((transition.hours)*60*60) + ((transition.minutes)*60)
+    + transition.seconds }}'
+  max_color_distance: !input 'max_color_distance'
+  max_changes_per_second: !input 'max_changes_per_second'
+  color_rgbs:
+    - !input 'color_1'
+    - !input 'color_2'
+    - !input 'color_3'
+    - !input 'color_4'
+    - !input 'color_5'
+    - !input 'color_6'
+    - !input 'color_7'
+    - !input 'color_8'
+    - !input 'color_9'
+    - !input 'color_10'
+    - !input 'color_11'
+    - !input 'color_12'
+  # Convert the array of RGB colors to a comma separated list of HSV values.
+  # Exclude any colors set to black.
+  # https://community.home-assistant.io/t/using-hsv-hsb-to-set-colored-lights/15472
+  # https://github.com/home-assistant/core/issues/33678#issuecomment-609424851
+  # https://stackoverflow.com/a/56141280/4147996
+  color_hsv_list_csv: >-
+    {%- set data = namespace(entries=[]) -%}
+    {%- for color_rgb in color_rgbs -%}
+      {%- if color_rgb != [0,0,0] -%}
+        {%- set r = (color_rgb[0]/255) -%}
+        {%- set g = (color_rgb[1]/255) -%}
+        {%- set b = (color_rgb[2]/255) -%}
+        {%- set maxRGB = max(r,g,b) -%}
+        {%- set minRGB = min(r,g,b) -%}
+        {%- set chroma = maxRGB - minRGB -%}
+        {%- if chroma == 0 -%}
+          {%- set h = 0 -%}
+          {%- set s = 0 -%}
+          {%- set v = maxRGB -%}
+        {%- else -%}
+          {%- if r == minRGB -%}
+            {%- set h = 3-((g-b)/chroma) -%}
+          {%- elif b == minRGB -%}
+            {%- set h = 1-((r-g)/chroma) -%}
           {%- else -%}
-            {%- if r == minRGB -%}
-              {%- set h = 3-((g-b)/chroma) -%}
-            {%- elif b == minRGB -%}
-              {%- set h = 1-((r-g)/chroma) -%}
-            {%- else -%}
-              {%- set h = 5-((b-r)/chroma) -%}
-            {%- endif -%}
-            {%- set h = 60 * h -%}
-            {%- set s = chroma / maxRGB -%}
-            {%- set v = maxRGB -%}
+            {%- set h = 5-((b-r)/chroma) -%}
           {%- endif -%}
-          {%- set h = h|round(2)|string -%}
-          {%- set s = s|round(2)|string -%}
-          {%- set v = v|round(2)|string -%}
-          {%- set comma_sep = h + "|" + s + "|" + v -%}
-          {%- set data.entries = data.entries + [comma_sep] -%}
+          {%- set h = 60 * h -%}
+          {%- set s = chroma / maxRGB -%}
+          {%- set v = maxRGB -%}
         {%- endif -%}
-      {%- endfor -%}
-      {{ data.entries | join(",") }}
-    color_count: '{{ color_hsv_list.split(",")|length }}'
+        {%- set h = h|round(2)|string -%}
+        {%- set s = s|round(2)|string -%}
+        {%- set v = v|round(2)|string -%}
+        {%- set comma_sep = h + "|" + s + "|" + v -%}
+        {%- set data.entries = data.entries + [comma_sep] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ data.entries | join(",") }}
+  color_hsv_list: '{{ color_hsv_list_csv.split(",") }}'
+  color_count: '{{ color_hsv_list|length }}'
 
+
+# TODO: Once we have the ability to use templates in triggers, allow `helper_toggle` to be empty so we don't have to deal with duplicate triggers by using the "same light" work-around.
+# Refer to https://community.home-assistant.io/t/261682
+trigger:
+  - platform: state
+    entity_id:
+      - !input 'light'
+    from: "off"
+    to: "on"
+  - platform: state
+    entity_id:
+      - !input 'helper_toggle'
+    from: "off"
+    to: "on"
+  - platform: event
+    event_type: automation_reloaded
+
+
+condition:
+  - condition: and
+    conditions:
+      - condition: state
+        entity_id: !input 'helper_toggle'
+        state: "on"
+      - condition: state
+        entity_id: !input 'light'
+        state: "on"
+      # If the helper toggle is not used (light is same entity as toggle),
+      # this ensures that we don't cause two color loops to run in a row.
+      - '{{ toggle_is_used or trigger.id != "1" }}'
+
+
+action:
 - alias: Change Color
   repeat:
     while:
-    - condition: state
-      entity_id: !input 'light'
-      state: 'on'
+    - condition: and
+      conditions:
+        - condition: state
+          entity_id: !input 'light'
+          state: 'on'
+        - condition: state
+          entity_id: !input 'helper_toggle'
+          state: 'on'
     sequence:
     - variables:
         # Total iterations so-far.
@@ -386,13 +603,13 @@ sequence:
         # Next color index to change to.
         i_next: '{{ i_total % color_count }}'
         # Get the H/S of current colors.
-        hsv_cur: '{{ color_hsv_list.split(",")[i_cur] }}'
-        hue_cur: '{{ hsv_cur.split("|")[0] }}'
-        sat_cur: '{{ (hsv_cur.split("|")[1])|float * 100 }}'
+        hsv_cur_csv: '{{ color_hsv_list[i_cur] }}'
+        hue_cur: '{{ hsv_cur_csv.split("|")[0] }}'
+        sat_cur: '{{ (hsv_cur_csv.split("|")[1])|float * 100 }}'
         # Get the H/S of next colors.
-        hsv_next: '{{ color_hsv_list.split(",")[i_next] }}'
-        hue_next: '{{ hsv_next.split("|")[0] }}'
-        sat_next: '{{ (hsv_next.split("|")[1])|float * 100 }}'
+        hsv_next_csv: '{{ color_hsv_list[i_next] }}'
+        hue_next: '{{ hsv_next_csv.split("|")[0] }}'
+        sat_next: '{{ (hsv_next_csv.split("|")[1])|float * 100 }}'
 
         # Get the hue color distance.
         # https://stackoverflow.com/questions/1878907#comment119528981_7869457
@@ -409,7 +626,7 @@ sequence:
 
         # Limit the fade iterations based on configuration.
         fade_iterations: '{{ min(iterations_desired, (max_changes_per_second * transition_seconds)) }}'
-        # Calculate what we need to increase/decrease the Hue/Sat by for each fade interation.
+        # Calculate what we need to increase/decrease the Hue/Sat by for each fade iteration.
         hue_step: '{{ (color_distance / fade_iterations) }}'
         sat_step: '{{ ((sat_next - sat_cur) / fade_iterations) }}'
 
@@ -417,16 +634,35 @@ sequence:
       repeat:
         count: '{{ fade_iterations }}'
         sequence:
-          - condition: state
-            entity_id: !input 'light'
-            state: 'on'
+          - condition: and
+            conditions:
+              - condition: state
+                entity_id: !input 'light'
+                state: 'on'
+              - condition: state
+                entity_id: !input 'helper_toggle'
+                state: 'on'
           - variables:
+              # If the provided light entity is a group, we want to ensure we
+              # only change colors of lights that are currently on, otherwise
+              # it will turn on the lights that are off, just to change colors.
+              # We want to only change colors on lights that are currently on.
+              # This works for both single lights and groups.
+              lights_currently_on: "{{
+                expand(color_loop_light)
+                | selectattr('domain', 'eq', 'light')
+                | selectattr('state', 'eq', 'on')
+                | map(attribute='entity_id')
+                | list
+              }}"
               # Total fade iterations so-far.
               t_total: '{{ repeat.index }}'
               # Current fade iterations we're on.
               t_cur: '{{ (t_total - 1) % fade_iterations }}'
               # Divide the transition in by # of iterations.
-              transition_fade: '{{ transition_seconds / fade_iterations }}'
+              transition_time_length: '{{ transition_seconds / fade_iterations }}'
+              transition_time_start: '{{ as_timestamp(utcnow()) }}'
+              transition_time_end: "{{ as_timestamp(utcnow()) + transition_time_length }}"
               # Get the current Hue value and compensate if it rolls over 0 or 360.
               transition_hue_calc: '{{ hue_cur + (hue_step * t_cur)|round(2) }}'
               transition_hue: >-
@@ -442,8 +678,65 @@ sequence:
           # Transition to the next mid-way color or final color.
           - service: light.turn_on
             target:
-              entity_id: !input 'light'
+              entity_id: '{{ lights_currently_on }}'
             data:
               hs_color: '{{ [transition_hue, transition_sat] }}'
-              transition: '{{ transition_fade }}'
-          - delay: '{{ transition_fade }}'
+              transition: '{{ transition_time_length }}'
+
+          # While this current color is transitioning, check to see if the
+          # toggle has turned off, if so abort the automation.
+          # This will only be applicable if either:
+          # - A toggle is used to control the color loop.
+          # - If transition_time_length  > toggle_transition_check_time
+          # Otherwise just run a delay the same time amount as the color transition.
+          - if:
+              - condition: or
+                conditions:
+                - '{{ toggle_is_used == false }}'
+                - '{{ transition_time_length <= toggle_transition_check_time }}'
+
+            # Toggle-check not applicable, just wait until the transition is complete.
+            then:
+              - delay: '{{ transition_time_length }}'
+
+            # Toggle-check is applicable, loop every X seconds while the color
+            # is transitioning and check to see if the toggle is switched off.
+            else:
+              - alias: Check to see if toggle is turned off during transition.
+                repeat:
+                  until:
+                    - condition: or
+                      conditions:
+                      - '{{ as_timestamp(utcnow()) >= transition_time_end }}'
+                      - condition: state
+                        entity_id: !input 'light'
+                        state: 'off'
+                  sequence:
+                  - if:
+                      # Check if the toggle has switched off mid-transition.
+                      - condition: state
+                        entity_id: !input 'helper_toggle'
+                        state: "off"
+                    then:
+                      # Stop the current transition of the light by setting
+                      # the light to its current color with a transition of 0.
+                      - service: light.turn_on
+                        target:
+                          entity_id: '{{ lights_currently_on }}'
+                        data:
+                          hs_color: "{{ state_attr(color_loop_light, 'hs_color') }}"
+                          transition: 0
+                      # Stop the automation.
+                      - stop: "Stopped because the toggle was switched off"
+                    else:
+                      # Wait either "toggle_transition_check_time" or until the
+                      # transition is complete (whatever is less).
+                      - variables:
+                          delay: >
+                            {% set time_now = as_timestamp(utcnow()) %}
+                            {% if (time_now + toggle_transition_check_time) > transition_time_end %}
+                              {{ max(0, (transition_time_end - time_now)) }}
+                            {% else %}
+                              {{ toggle_transition_check_time }}
+                            {% endif %}
+                      - delay: '{{ delay }}'
