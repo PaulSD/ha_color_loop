@@ -333,6 +333,7 @@ blueprint:
             <hr>
         </details>
 
+
         **For performance reasons, this should be set as low as possible**,
         but with lights which do not support color transitions, this can be
         increased in order to have smoother color transitions.
