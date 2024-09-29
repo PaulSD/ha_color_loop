@@ -654,7 +654,7 @@ action:
           {% endif %}
 
         # Limit the fade iterations based on configuration.
-        fade_iterations: '{{ min(iterations_desired, (max_changes_per_second * transition_seconds)) }}'
+        fade_iterations: '{{ max(1, min(iterations_desired, (max_changes_per_second * transition_seconds))) }}'
         # Calculate what we need to increase/decrease the Hue/Sat by for each fade iteration.
         hue_step: '{{ (color_distance / fade_iterations) }}'
         sat_step: '{{ ((sat_next - sat_cur) / fade_iterations) }}'
