@@ -46,19 +46,33 @@ blueprint:
 
     &nbsp;&nbsp;exclude:
 
+    &nbsp;&nbsp;&nbsp;&nbsp;\# To explicitly list each entity to exclude from logging:
+
     &nbsp;&nbsp;&nbsp;&nbsp;entities:
 
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Exclude any logging of the chosen light.
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Exclude any logging for the chosen light.
 
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- light.my_light
 
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Exclude any logging of this color loop script.
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Exclude any logging for this color loop script.
 
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- automation.my_light_color_loop
 
+    &nbsp;&nbsp;&nbsp;&nbsp;\# To use entity wildcards to exclude from logging:
+
+    &nbsp;&nbsp;&nbsp;&nbsp;entity_glob:
+
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Exclude logging for all lights.
+
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- light.\*
+
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Exclude logging for all automations named "Color Loop *".
+
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- automation.color_loop_\*
+
     &nbsp;&nbsp;&nbsp;&nbsp;event_types:
 
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Do not record ANY service calls
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;\# Do not record ANY service calls.
 
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- call_service
     </code>
