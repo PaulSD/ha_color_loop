@@ -504,7 +504,7 @@ variables:
   # If a "separate" toggle is used, during long light transitions, we will need
   # to check every X seconds whether the toggle has switched off so that we can
   # stop the current color transition as well as this automation.
-  toggle_transition_check_time: 1.5
+  toggle_check_time: 1.5
   transition: !input 'transition'
   transition_seconds: '{{ ((transition.hours)*60*60) + ((transition.minutes)*60)
     + transition.seconds }}'
@@ -702,13 +702,13 @@ action:
           # toggle has turned off, if so abort the automation.
           # This will only be applicable if either:
           # - A toggle is used to control the color loop.
-          # - If transition_time_length  > toggle_transition_check_time
+          # - If transition_time_length > toggle_check_time
           # Otherwise just run a delay the same time amount as the color transition.
           - if:
               - condition: or
                 conditions:
                 - '{{ toggle_is_used == false }}'
-                - '{{ transition_time_length <= toggle_transition_check_time }}'
+                - '{{ transition_time_length <= toggle_check_time }}'
 
             # Toggle-check not applicable, just wait until the transition is complete.
             then:
@@ -744,14 +744,14 @@ action:
                       # Stop the automation.
                       - stop: "Stopped because the toggle was switched off"
                     else:
-                      # Wait either "toggle_transition_check_time" or until the
-                      # transition is complete (whatever is less).
+                      # Wait either "toggle_check_time" or until the transition
+                      # is complete (whatever is less).
                       - variables:
                           delay: >
                             {% set time_now = as_timestamp(utcnow()) %}
-                            {% if (time_now + toggle_transition_check_time) > transition_time_end %}
+                            {% if (time_now + toggle_check_time) > transition_time_end %}
                               {{ max(0, (transition_time_end - time_now)) }}
                             {% else %}
-                              {{ toggle_transition_check_time }}
+                              {{ toggle_check_time }}
                             {% endif %}
                       - delay: '{{ delay }}'
