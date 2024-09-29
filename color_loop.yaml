@@ -117,14 +117,14 @@ blueprint:
     light:
       name: Light
       description: "
-        The Light entity or Light Group entity to loop through the colors chosen below.
+        The Light or Light Group entities to loop through the colors chosen below.
       "
       selector:
         entity:
           domain:
             - light
             - group
-          multiple: false
+          multiple: true
     # TODO: If helpers are introduced to blueprints, add our own toggle so we don't have to rely on external entities.
     # Refer to https://community.home-assistant.io/t/258307
     helper_toggle:
@@ -506,12 +506,12 @@ mode: restart
 
 # Set up main variables.
 variables:
-  color_loop_light: !input 'light'
+  color_loop_lights: !input 'light'
   helper_toggle: !input 'helper_toggle'
   # Since we are forced to provide an entity for the `helper_toggle` input
   # (otherwise the trigger step would break) this variable is used as an
   # indicator for whether a "separate" toggle is used.
-  toggle_is_used: '{{ color_loop_light != helper_toggle }}'
+  toggle_is_used: '{{ (color_loop_lights | first) != helper_toggle }}'
   # If a "separate" toggle is used, during long light transitions, we will need
   # to check every X seconds whether the toggle has switched off so that we can
   # stop the current color transition as well as this automation.
@@ -584,15 +584,13 @@ variables:
 # Refer to https://community.home-assistant.io/t/261682
 trigger:
   - platform: state
-    entity_id:
-      - !input 'light'
-    from: "off"
-    to: "on"
+    entity_id: !input 'light'
+    from: 'off'
+    to: 'on'
   - platform: state
-    entity_id:
-      - !input 'helper_toggle'
-    from: "off"
-    to: "on"
+    entity_id: !input 'helper_toggle'
+    from: 'off'
+    to: 'on'
   - platform: event
     event_type: automation_reloaded
 
@@ -602,10 +600,11 @@ condition:
     conditions:
       - condition: state
         entity_id: !input 'helper_toggle'
-        state: "on"
+        state: 'on'
       - condition: state
         entity_id: !input 'light'
-        state: "on"
+        match: any
+        state: 'on'
       # If the helper toggle is not used (light is same entity as toggle),
       # this ensures that we don't cause two color loops to run in a row.
       - '{{ toggle_is_used or trigger.id != "1" }}'
@@ -619,6 +618,7 @@ action:
       conditions:
         - condition: state
           entity_id: !input 'light'
+          match: any
           state: 'on'
         - condition: state
           entity_id: !input 'helper_toggle'
@@ -667,6 +667,7 @@ action:
             conditions:
               - condition: state
                 entity_id: !input 'light'
+                match: any
                 state: 'on'
               - condition: state
                 entity_id: !input 'helper_toggle'
@@ -678,7 +679,7 @@ action:
               # We want to only change colors on lights that are currently on.
               # This works for both single lights and groups.
               lights_currently_on: "{{
-                expand(color_loop_light)
+                expand(color_loop_lights)
                 | selectattr('domain', 'eq', 'light')
                 | selectattr('state', 'eq', 'on')
                 | map(attribute='entity_id')
@@ -753,7 +754,14 @@ action:
                         target:
                           entity_id: '{{ lights_currently_on }}'
                         data:
-                          hs_color: "{{ state_attr(color_loop_light, 'hs_color') }}"
+                          hs_color: "{{
+                            state_attr((
+                              expand(color_loop_lights)
+                              | selectattr('domain', 'eq', 'light')
+                              | selectattr('state', 'eq', 'on')
+                              | first
+                            ), 'hs_color')
+                          }}"
                           transition: 0
                       # Stop the automation.
                       - stop: "Stopped because the toggle was switched off"
@@ -776,6 +784,7 @@ action:
           conditions:
             - condition: state
               entity_id: !input 'light'
+              match: any
               state: 'on'
             - condition: state
               entity_id: !input 'helper_toggle'
