@@ -223,10 +223,21 @@ blueprint:
           domain:
             - light
             - input_boolean
+    hold:
+      name: Hold Time
+      description: "
+        Choose the time to hold on each color.
+      "
+      selector:
+        duration: {}
+      default:
+        hours: 0
+        minutes: 0
+        seconds: 15
     transition:
       name: Transition Time
       description: "
-        Choose the time it takes to cycle through each color.
+        Choose the time to transition between colors.
       "
       selector:
         duration: {}
@@ -505,6 +516,9 @@ variables:
   # to check every X seconds whether the toggle has switched off so that we can
   # stop the current color transition as well as this automation.
   toggle_check_time: 1.5
+  hold: !input 'hold'
+  hold_seconds: '{{ ((hold.hours)*60*60) + ((hold.minutes)*60)
+    + hold.seconds }}'
   transition: !input 'transition'
   transition_seconds: '{{ ((transition.hours)*60*60) + ((transition.minutes)*60)
     + transition.seconds }}'
@@ -677,7 +691,7 @@ action:
               # Divide the transition in by # of iterations.
               transition_time_length: '{{ transition_seconds / fade_iterations }}'
               transition_time_start: '{{ as_timestamp(utcnow()) }}'
-              transition_time_end: "{{ as_timestamp(utcnow()) + transition_time_length }}"
+              transition_time_end: "{{ transition_time_start + transition_time_length }}"
               # Get the current Hue value and compensate if it rolls over 0 or 360.
               transition_hue_calc: '{{ hue_cur + (hue_step * t_cur)|round(2) }}'
               transition_hue: >-
@@ -755,3 +769,68 @@ action:
                               {{ toggle_check_time }}
                             {% endif %}
                       - delay: '{{ delay }}'
+
+    - alias: Hold Color
+      sequence:
+        - condition: and
+          conditions:
+            - condition: state
+              entity_id: !input 'light'
+              state: 'on'
+            - condition: state
+              entity_id: !input 'helper_toggle'
+              state: 'on'
+            - '{{ hold_seconds > 0 }}'
+        - variables:
+            hold_time_start: '{{ as_timestamp(utcnow()) }}'
+            hold_time_end: "{{ hold_time_start + hold_seconds }}"
+
+        # While holding, check to see if the toggle has turned off, if so abort
+        # the automation.
+        # This will only be applicable if either:
+        # - A toggle is used to control the color loop.
+        # - If hold_seconds > toggle_check_time
+        # Otherwise just run a delay the same time amount as the hold time.
+        - if:
+            - condition: or
+              conditions:
+              - '{{ toggle_is_used == false }}'
+              - '{{ hold_seconds <= toggle_check_time }}'
+
+          # Toggle-check not applicable, just wait until the hold is complete.
+          then:
+            - delay: '{{ hold_seconds }}'
+
+          # Toggle-check is applicable, loop every X seconds while holding and
+          # check to see if the toggle is switched off.
+          else:
+            - alias: Check to see if toggle is turned off during hold.
+              repeat:
+                until:
+                  - condition: or
+                    conditions:
+                    - '{{ as_timestamp(utcnow()) >= hold_time_end }}'
+                    - condition: state
+                      entity_id: !input 'light'
+                      state: 'off'
+                sequence:
+                - if:
+                    # Check if the toggle has switched off mid-transition.
+                    - condition: state
+                      entity_id: !input 'helper_toggle'
+                      state: "off"
+                  then:
+                    # Stop the automation.
+                    - stop: "Stopped because the toggle was switched off"
+                  else:
+                    # Wait either "toggle_check_time" or until the hold is
+                    # complete (whatever is less).
+                    - variables:
+                        delay: >
+                          {% set time_now = as_timestamp(utcnow()) %}
+                          {% if (time_now + toggle_check_time) > hold_time_end %}
+                            {{ max(0, (hold_time_end - time_now)) }}
+                          {% else %}
+                            {{ toggle_check_time }}
+                          {% endif %}
+                    - delay: '{{ delay }}'
