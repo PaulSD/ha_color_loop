@@ -712,6 +712,7 @@ action:
             data:
               hs_color: '{{ [transition_hue, transition_sat] }}'
               transition: '{{ transition_time_length }}'
+            continue_on_error: true
 
           # While this current color is transitioning, check to see if the
           # toggle has turned off, if so abort the automation.
